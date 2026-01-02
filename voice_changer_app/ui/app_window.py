@@ -135,29 +135,44 @@ class AppWindow:
 
     def _update_waveform(self, samples):
         current_time = time.time()
-        if current_time - self._last_waveform_update < self._waveform_throttle:
+        if current_time - self._last_waveform_update < 0.05:
             return
         
         self._last_waveform_update = current_time
         
         def _draw():
+            # Check existence to prevent errors on closing
+            if not self.root or not self.wave_canvas.winfo_exists():
+                return
+
             try:
-                w, h = 150, 30
+                w = self.wave_canvas.winfo_width() # Dynamic width
+                h = self.wave_canvas.winfo_height()
                 mid = h / 2
+                
                 self.wave_canvas.delete("all")
                 
-                step = w / len(samples)
+                limit = max(10, int(w / 2))
+                if len(samples) > limit:
+                     step_size = len(samples) // limit
+                     draw_samples = samples[::step_size]
+                else:
+                     draw_samples = samples
+
+                step = w / len(draw_samples)
                 coords = []
-                for i, s in enumerate(samples):
+                for i, s in enumerate(draw_samples):
                     x = i * step
-                    y = mid + (s * mid * 0.9)
+                    y = mid + (s * mid * 0.8)
                     coords.append(x)
                     coords.append(y)
                 
                 if len(coords) > 4:
-                    self.wave_canvas.create_line(coords, fill="#00ff00", width=1, smooth=True)
-            except (RuntimeError, AttributeError, TclError):
+                    self.wave_canvas.create_line(coords, fill="#00ff00", width=1.5, smooth=True)
+                    
+            except Exception:
                 pass
+                
         self.root.after(0, _draw)
 
 
