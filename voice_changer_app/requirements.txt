@@ -1,0 +1,7 @@
+elevenlabs
+pyaudio
+python-dotenv
+numpy
+requests
+customtkinter
+packaging
