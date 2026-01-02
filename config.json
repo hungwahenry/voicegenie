@@ -1,6 +1,9 @@
 {
     "api_key": "sk_2cbff8d43488976cd51da74635fd65176484c61c218ddaba",
     "input_device_index": 1,
-    "output_device_index": 4,
-    "voice_id": "FGY2WhTYpPnrIDTdsKH5"
+    "output_device_index": 6,
+    "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+    "vad_pause": 1.0,
+    "max_duration": 30.0,
+    "latency": 4
 }

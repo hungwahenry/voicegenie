@@ -81,6 +81,7 @@ class AudioManager:
             def input_callback(in_data, frame_count, time_info, status):
                 if self.is_running:
                     self.input_queue.put(in_data)
+                    # print(".", end="", flush=True) # Debug visualizer
                 return (None, pyaudio.paContinue)
 
             self.input_stream = self.p.open(

@@ -5,7 +5,7 @@ from tkinter import messagebox
 from utils.settings import Settings
 from utils.constants import APP_VERSION, APP_AUTHOR, APP_TITLE
 from core.audio_manager import AudioManager
-from core.voice_processor import VoiceProcessor
+from core.sts_processor import STSProcessor
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -22,10 +22,20 @@ class AppWindow:
         self.audio_mgr = AudioManager()
         
         # Processor init
-        self.processor = None
+        self.sts_processor = None
+        
         if self.settings.api_key:
             try:
-                self.processor = VoiceProcessor(self.settings.api_key)
+                self.sts_processor = STSProcessor(self.settings.api_key)
+                # Apply saved settings
+                self.sts_processor.vad_threshold = 500 # Default/Saved val usually managed via UI
+                self.sts_processor.vad_pause = self.settings.vad_pause
+                self.sts_processor.max_duration = self.settings.max_duration
+                self.sts_processor.latency = self.settings.latency
+                self.sts_processor.stability = self.settings.stability
+                self.sts_processor.similarity = self.settings.similarity
+                self.sts_processor.remove_background_noise = self.settings.remove_background_noise
+                
                 self._bind_callbacks()
             except Exception as e:
                 print(e)
@@ -35,10 +45,10 @@ class AppWindow:
         self._load_voices_async()
 
     def _bind_callbacks(self):
-        if self.processor:
-            self.processor.on_log = self._log_message
-            self.processor.on_vad_level = None # Unused now
-            self.processor.on_audio_data = self._update_waveform
+        if self.sts_processor:
+            self.sts_processor.on_log = self._log_message
+            self.sts_processor.on_vad_level = None # Unused now
+            self.sts_processor.on_audio_data = self._update_waveform
             
             # Throttling for waveform (prevent UI lag)
             self._last_waveform_update = 0
@@ -93,6 +103,46 @@ class AppWindow:
         self.vad_label = ctk.CTkLabel(self.voice_frame, text="500", font=("Arial", 10))
         self.vad_label.pack(pady=(0, 5))
 
+        ctk.CTkLabel(self.voice_frame, text="Silence Wait (s):", font=("Arial", 10)).pack(anchor="w", padx=5)
+        self.pause_slider = ctk.CTkSlider(self.voice_frame, from_=0.1, to=3.0, number_of_steps=29, command=self._on_pause_slide, height=20)
+        self.pause_slider.set(self.settings.vad_pause)
+        self.pause_slider.pack(fill="x", padx=5, pady=(2, 0))
+        
+        self.pause_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.vad_pause:.1f}", font=("Arial", 10))
+        self.pause_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.vad_pause:.1f}", font=("Arial", 10))
+        self.pause_label.pack(pady=(0, 5))
+
+        ctk.CTkLabel(self.voice_frame, text="Latency Opt (0-4):", font=("Arial", 10)).pack(anchor="w", padx=5)
+        self.latency_slider = ctk.CTkSlider(self.voice_frame, from_=0, to=4, number_of_steps=4, command=self._on_latency_slide, height=20)
+        self.latency_slider.set(self.settings.latency)
+        self.latency_slider.pack(fill="x", padx=5, pady=(2, 0))
+        
+        self.latency_label = ctk.CTkLabel(self.voice_frame, text=str(self.settings.latency), font=("Arial", 10))
+        self.latency_label.pack(pady=(0, 5))
+
+        # Divider
+        ctk.CTkFrame(self.voice_frame, height=1, fg_color="gray").pack(fill="x", padx=5, pady=5)
+
+        # Quality/Tuning
+        self.noise_chk = ctk.CTkCheckBox(self.voice_frame, text="Remove Noise", font=("Arial", 10), command=self._on_noise_chk)
+        if self.settings.remove_background_noise: self.noise_chk.select()
+        else: self.noise_chk.deselect()
+        self.noise_chk.pack(anchor="w", padx=5, pady=(0, 5))
+
+        ctk.CTkLabel(self.voice_frame, text="Stability:", font=("Arial", 10)).pack(anchor="w", padx=5)
+        self.stab_slider = ctk.CTkSlider(self.voice_frame, from_=0.0, to=1.0, command=self._on_stab_slide, height=20)
+        self.stab_slider.set(self.settings.stability)
+        self.stab_slider.pack(fill="x", padx=5, pady=(2, 0))
+        self.stab_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.stability:.2f}", font=("Arial", 10))
+        self.stab_label.pack(pady=(0, 5))
+
+        ctk.CTkLabel(self.voice_frame, text="Similarity:", font=("Arial", 10)).pack(anchor="w", padx=5)
+        self.sim_slider = ctk.CTkSlider(self.voice_frame, from_=0.0, to=1.0, command=self._on_sim_slide, height=20)
+        self.sim_slider.set(self.settings.similarity)
+        self.sim_slider.pack(fill="x", padx=5, pady=(2, 0))
+        self.sim_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.similarity:.2f}", font=("Arial", 10))
+        self.sim_label.pack(pady=(0, 5))
+
         # 3. Controls (Status & Actions)
         self.ctrl_frame = ctk.CTkFrame(self.root)
         self.ctrl_frame.pack(fill="x", padx=10, pady=5)
@@ -104,9 +154,7 @@ class AppWindow:
         self.status_label = ctk.CTkLabel(self.status_row, text="Ready", font=("Arial", 14, "bold"), text_color="gray", anchor="w")
         self.status_label.pack(side="left")
         
-        # Waveform Canvas (using standard tkinter Canvas integrated into CustomTkinter)
-        # CTk doesn't have a dedicated Canvas, so we mixin standard Canvas 
-        # but style it to match dark mode.
+        # Waveform Canvas
         self.wave_canvas = ctk.CTkCanvas(self.status_row, width=150, height=30, bg="#2b2b2b", highlightthickness=0)
         self.wave_canvas.pack(side="right", pady=5)
 
@@ -180,16 +228,62 @@ class AppWindow:
     def _on_vad_slide(self, value):
         val = int(value)
         self.vad_label.configure(text=str(val))
-        if self.processor:
-            self.processor.vad_threshold = val
+        if self.sts_processor:
+            self.sts_processor.vad_threshold = val
 
+    def _on_pause_slide(self, value):
+        val = round(float(value), 1)
+        self.pause_label.configure(text=str(val))
+        self.settings.vad_pause = val
+        self.settings.save()
+        if self.sts_processor:
+            self.sts_processor.vad_pause = val
+
+    def _on_latency_slide(self, value):
+        val = int(value)
+        self.latency_label.configure(text=str(val))
+        self.settings.latency = val
+        self.settings.save()
+        if self.sts_processor:
+            self.sts_processor.latency = val
+
+    def _on_noise_chk(self):
+        val = bool(self.noise_chk.get())
+        self.settings.remove_background_noise = val
+        self.settings.save()
+        if self.sts_processor:
+            self.sts_processor.remove_background_noise = val
+
+    def _on_stab_slide(self, value):
+        val = round(float(value), 2)
+        self.stab_label.configure(text=str(val))
+        self.settings.stability = val
+        self.settings.save()
+        if self.sts_processor:
+            self.sts_processor.stability = val
+
+    def _on_sim_slide(self, value):
+        val = round(float(value), 2)
+        self.sim_label.configure(text=str(val))
+        self.settings.similarity = val
+        self.settings.save()
+        if self.sts_processor:
+            self.sts_processor.similarity = val
+    
     def _save_api_key(self):
         key = self.api_key_var.get().strip()
         if not key: return
         self.settings.api_key = key
         self.settings.save()
         try:
-            self.processor = VoiceProcessor(key)
+            self.sts_processor = STSProcessor(key)
+            self.sts_processor.vad_pause = self.settings.vad_pause
+            self.sts_processor.max_duration = self.settings.max_duration
+            self.sts_processor.latency = self.settings.latency
+            self.sts_processor.stability = self.settings.stability
+            self.sts_processor.similarity = self.settings.similarity
+            self.sts_processor.remove_background_noise = self.settings.remove_background_noise
+            
             self._bind_callbacks()
             self._load_voices_async()
             self._log_message("API Key saved.")
@@ -232,9 +326,9 @@ class AppWindow:
             pass
 
     def _load_voices_async(self):
-        if not self.processor: return
+        if not self.sts_processor: return
         def fetch():
-            voices = self.processor.get_voices()
+            voices = self.sts_processor.get_voices()
             self.root.after(0, lambda: self._update_voice_list(voices))
         threading.Thread(target=fetch, daemon=True).start()
 
@@ -248,7 +342,7 @@ class AppWindow:
             for v in voices:
                 if v.voice_id == self.settings.voice_id:
                     self.voice_combo.set(v.name)
-                    self.processor.set_voice(v.voice_id)
+                    self.sts_processor.set_voice(v.voice_id)
                     break 
         else:
              self._on_voice_change(self.voice_combo.get())
@@ -259,29 +353,26 @@ class AppWindow:
             if v.name == name:
                 self.settings.voice_id = v.voice_id
                 self.settings.save()
-                if self.processor:
-                    self.processor.set_voice(v.voice_id)
+                if self.sts_processor:
+                    self.sts_processor.set_voice(v.voice_id)
                 break
 
     def _toggle_streaming(self):
-        if not self.processor:
+        if not self.sts_processor:
             self._log_message("Error: No API Key")
             return
 
         if self.audio_mgr.is_running:
-            # STOP - Run in background to prevent UI freeze
             self.status_label.configure(text="Stopping...", text_color="orange")
-            self.start_btn.configure(state="disabled")  # Prevent double-click
+            self.start_btn.configure(state="disabled")
             
             def _stop_async():
-                self.processor.stop_processing()
+                self.sts_processor.stop_processing()
                 self.audio_mgr.stop_streams()
-                # Update UI from main thread
                 self.root.after(0, lambda: self._on_stop_complete())
             
             threading.Thread(target=_stop_async, daemon=True).start()
         else:
-            # START - Run in background to prevent UI freeze
             try:
                 in_str = self.input_combo.get()
                 out_str = self.output_combo.get()
@@ -292,15 +383,13 @@ class AppWindow:
                 in_idx = int(in_str.split(":")[0])
                 out_idx = int(out_str.split(":")[0])
                 
-                # Update UI immediately
                 self.status_label.configure(text="Starting...", text_color="orange")
-                self.start_btn.configure(state="disabled")  # Prevent double-click
+                self.start_btn.configure(state="disabled")
                 
                 def _start_async():
                     try:
                         self.audio_mgr.start_streams(in_idx, out_idx)
-                        self.processor.start_processing(self.audio_mgr)
-                        # Update UI from main thread
+                        self.sts_processor.start_processing(self.audio_mgr)
                         self.root.after(0, lambda: self._on_start_complete())
                     except Exception as e:
                         self.root.after(0, lambda: self._on_start_error(str(e)))
@@ -330,6 +419,6 @@ class AppWindow:
     def on_closing(self):
         if self.audio_mgr.is_running:
             self.audio_mgr.stop_streams()
-        if self.processor:
-            self.processor.stop_processing()
+        if self.sts_processor:
+            self.sts_processor.stop_processing()
         self.root.destroy()
