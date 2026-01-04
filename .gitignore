@@ -1,2 +1,4 @@
 .venv/
 elevenlabs-docs/
+__pycache__/
+*.pyc

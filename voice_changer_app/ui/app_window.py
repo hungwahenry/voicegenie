@@ -4,6 +4,7 @@ import time
 from tkinter import messagebox
 from utils.settings import Settings
 from utils.constants import APP_VERSION, APP_AUTHOR, APP_TITLE
+from utils.device_guide import get_device_guide_text
 from core.audio_manager import AudioManager
 from core.sts_processor import STSProcessor
 
@@ -89,8 +90,9 @@ class AppWindow:
         self.output_combo = ctk.CTkComboBox(self.tab_io, command=self._on_device_change, state="readonly", height=24)
         self.output_combo.grid(row=1, column=1, sticky="ew", padx=5, pady=(0, 5))
         
-        # Row 2: Refresh (Spanning)
-        ctk.CTkButton(self.tab_io, text="Refresh Devices", height=20, font=("Arial", 10), command=self._load_devices).grid(row=2, column=0, columnspan=2, pady=5)
+        # Row 2: Refresh + Help
+        ctk.CTkButton(self.tab_io, text="Refresh Devices", height=20, font=("Arial", 10), command=self._load_devices).grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+        ctk.CTkButton(self.tab_io, text="Help / Guide", height=20, font=("Arial", 10, "bold"), width=80, fg_color="gray", command=self._show_guide).grid(row=2, column=1, padx=5, pady=5, sticky="ew")
         
         # Row 3: Noise Checkbox (Spanning)
         self.noise_chk = ctk.CTkCheckBox(self.tab_io, text="AI Noise Removal", font=("Arial", 10), height=20, command=self._on_noise_chk)
@@ -310,6 +312,25 @@ class AppWindow:
             self._log_message("API Key saved.")
         except Exception as e:
             self._log_message(f"Error init API: {e}")
+
+    def _show_guide(self):
+        """Show audio setup guide in a modal window"""
+        guide_window = ctk.CTkToplevel(self.root)
+        guide_window.title("Audio Setup Guide")
+        guide_window.geometry("500x450")
+        
+        # Make modal
+        guide_window.transient(self.root) 
+        guide_window.grab_set()
+        
+        textbox = ctk.CTkTextbox(guide_window, font=("Consolas", 11))
+        textbox.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        text = get_device_guide_text()
+        textbox.insert("0.0", text)
+        textbox.configure(state="disabled") # Read-only
+        
+        ctk.CTkButton(guide_window, text="Close", command=guide_window.destroy).pack(pady=10)
 
     def _load_devices(self):
         devices = self.audio_mgr.get_devices()
