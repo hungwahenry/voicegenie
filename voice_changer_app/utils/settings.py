@@ -20,6 +20,7 @@ class Settings:
         self.stability = 0.5
         self.similarity = 0.75
         self.remove_background_noise = True
+        self.playback_buffer_size = 2048
         self.load()
 
     def load(self):
@@ -38,6 +39,7 @@ class Settings:
                     self.stability = data.get("stability", 0.5)
                     self.similarity = data.get("similarity", 0.75)
                     self.remove_background_noise = data.get("remove_background_noise", True)
+                    self.playback_buffer_size = data.get("playback_buffer_size", 2048)
             except Exception as e:
                 print(f"Error loading settings: {e}")
 
@@ -53,7 +55,8 @@ class Settings:
             "latency": self.latency,
             "stability": self.stability,
             "similarity": self.similarity,
-            "remove_background_noise": self.remove_background_noise
+            "remove_background_noise": self.remove_background_noise,
+            "playback_buffer_size": self.playback_buffer_size
         }
         try:
             with open(CONFIG_FILE, "w") as f:

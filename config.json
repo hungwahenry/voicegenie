@@ -2,8 +2,12 @@
     "api_key": "sk_2cbff8d43488976cd51da74635fd65176484c61c218ddaba",
     "input_device_index": 1,
     "output_device_index": 6,
-    "voice_id": "pFZP5JQG7iQjIQuC4Bku",
-    "vad_pause": 1.0,
+    "voice_id": "Xb7hH8MSUJpSbSDYk0k2",
+    "vad_pause": 0.5,
     "max_duration": 30.0,
-    "latency": 4
+    "latency": 4,
+    "stability": 0.5,
+    "similarity": 1.0,
+    "remove_background_noise": true,
+    "playback_buffer_size": 2800
 }

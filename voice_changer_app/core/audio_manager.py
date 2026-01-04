@@ -8,8 +8,8 @@ class JitterBuffer:
     Smooths out irregular audio chunk arrival from API.
     Pre-fills buffer before playback to prevent gaps.
     """
-    def __init__(self, target_size=5):
-        self.buffer = queue.Queue(maxsize=20)
+    def __init__(self, target_size=5, max_size=2048):
+        self.buffer = queue.Queue(maxsize=max_size)
         self.target_size = target_size  # Number of chunks to pre-buffer
         self.is_primed = False
         self._lock = threading.Lock()
@@ -46,20 +46,25 @@ class JitterBuffer:
             self.is_primed = False
 
 class AudioManager:
-    def __init__(self):
+    def __init__(self, max_buffer_size=2048):
         self.p = pyaudio.PyAudio()
         self.input_stream = None
         self.output_stream = None
         self.is_running = False
         
         self.input_queue = queue.Queue()
-        self.jitter_buffer = JitterBuffer(target_size=5)
+        self.jitter_buffer = JitterBuffer(target_size=5, max_size=max_buffer_size)
         self._output_thread = None
         
         self.chunk_size = 1024
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000
+
+    def set_buffer_size(self, max_size):
+        """Update JitterBuffer size (only call when stopped)"""
+        if not self.is_running:
+            self.jitter_buffer = JitterBuffer(target_size=5, max_size=max_size)
 
     def get_devices(self) -> List[Dict]:
         """List all available audio inputs and outputs."""

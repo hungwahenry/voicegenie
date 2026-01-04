@@ -14,12 +14,12 @@ class AppWindow:
     def __init__(self, root):
         self.root = root
         self.root.title(APP_TITLE)
-        self.root.geometry("500x700") # Slightly wider for side-by-side
+        self.root.geometry("500x600") # Compact height, fits all screens
         self.root.resizable(False, True) # Allow vertical resize for logs
         
         # Init components
         self.settings = Settings()
-        self.audio_mgr = AudioManager()
+        self.audio_mgr = AudioManager(max_buffer_size=self.settings.playback_buffer_size)
         
         # Processor init
         self.sts_processor = None
@@ -65,83 +65,96 @@ class AppWindow:
         self.api_entry.pack(side="left", padx=5, fill="x", expand=True)
         ctk.CTkButton(self.auth_frame, text="Save", width=50, command=self._save_api_key).pack(side="right", padx=5)
 
-        # 2. Config Container (Side-by-Side)
-        self.config_box = ctk.CTkFrame(self.root, fg_color="transparent")
-        self.config_box.pack(fill="x", padx=10, pady=5)
-
-        # === Left Col: Devices ===
-        self.dev_frame = ctk.CTkFrame(self.config_box)
-        self.dev_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        # 2. Tabs for Configuration
+        # 2. Tabs for Configuration
+        # 2. Tabs for Configuration
+        self.tab_view = ctk.CTkTabview(self.root, height=280)
+        self.tab_view.pack(fill="x", padx=10, pady=2)
         
-        ctk.CTkLabel(self.dev_frame, text="Audio Devices", font=("Arial", 12, "bold")).pack(pady=5)
+        self.tab_io = self.tab_view.add("Input / Output")
+        self.tab_voice = self.tab_view.add("Voice & Quality")
         
-        ctk.CTkLabel(self.dev_frame, text="Internal Mic (Input):", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.input_combo = ctk.CTkComboBox(self.dev_frame, command=self._on_device_change, state="readonly", height=25)
-        self.input_combo.pack(fill="x", padx=5, pady=(0, 5))
-
-        ctk.CTkLabel(self.dev_frame, text="Virtual Cable (Output):", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.output_combo = ctk.CTkComboBox(self.dev_frame, command=self._on_device_change, state="readonly", height=25)
-        self.output_combo.pack(fill="x", padx=5, pady=(0, 5))
+        # === TAB 1: Input / Output (Grid Layout) ===
+        self.tab_io.grid_columnconfigure(0, weight=1)
+        self.tab_io.grid_columnconfigure(1, weight=1)
         
-        ctk.CTkButton(self.dev_frame, text="Refresh", height=20, command=self._load_devices).pack(pady=5)
-
-        # === Right Col: Voice ===
-        self.voice_frame = ctk.CTkFrame(self.config_box)
-        self.voice_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        # Row 0: Device Labels
+        ctk.CTkLabel(self.tab_io, text="Input (Mic):", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky="w", padx=5, pady=(5,0))
+        ctk.CTkLabel(self.tab_io, text="Output (Cable):", font=("Arial", 10, "bold")).grid(row=0, column=1, sticky="w", padx=5, pady=(5,0))
         
-        ctk.CTkLabel(self.voice_frame, text="Voice Config", font=("Arial", 12, "bold")).pack(pady=5)
+        # Row 1: Device Combos
+        self.input_combo = ctk.CTkComboBox(self.tab_io, command=self._on_device_change, state="readonly", height=24)
+        self.input_combo.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 5))
         
-        ctk.CTkLabel(self.voice_frame, text="Target Voice:", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.voice_combo = ctk.CTkComboBox(self.voice_frame, command=self._on_voice_change, state="readonly", height=25)
-        self.voice_combo.pack(fill="x", padx=5, pady=(0, 5))
-
-        ctk.CTkLabel(self.voice_frame, text="VAD Sensitivity:", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.vad_slider = ctk.CTkSlider(self.voice_frame, from_=0, to=2000, command=self._on_vad_slide, height=20)
-        self.vad_slider.set(500)
-        self.vad_slider.pack(fill="x", padx=5, pady=(2, 0))
+        self.output_combo = ctk.CTkComboBox(self.tab_io, command=self._on_device_change, state="readonly", height=24)
+        self.output_combo.grid(row=1, column=1, sticky="ew", padx=5, pady=(0, 5))
         
-        self.vad_label = ctk.CTkLabel(self.voice_frame, text="500", font=("Arial", 10))
-        self.vad_label.pack(pady=(0, 5))
-
-        ctk.CTkLabel(self.voice_frame, text="Silence Wait (s):", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.pause_slider = ctk.CTkSlider(self.voice_frame, from_=0.1, to=3.0, number_of_steps=29, command=self._on_pause_slide, height=20)
-        self.pause_slider.set(self.settings.vad_pause)
-        self.pause_slider.pack(fill="x", padx=5, pady=(2, 0))
+        # Row 2: Refresh (Spanning)
+        ctk.CTkButton(self.tab_io, text="Refresh Devices", height=20, font=("Arial", 10), command=self._load_devices).grid(row=2, column=0, columnspan=2, pady=5)
         
-        self.pause_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.vad_pause:.1f}", font=("Arial", 10))
-        self.pause_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.vad_pause:.1f}", font=("Arial", 10))
-        self.pause_label.pack(pady=(0, 5))
-
-        ctk.CTkLabel(self.voice_frame, text="Latency Opt (0-4):", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.latency_slider = ctk.CTkSlider(self.voice_frame, from_=0, to=4, number_of_steps=4, command=self._on_latency_slide, height=20)
-        self.latency_slider.set(self.settings.latency)
-        self.latency_slider.pack(fill="x", padx=5, pady=(2, 0))
-        
-        self.latency_label = ctk.CTkLabel(self.voice_frame, text=str(self.settings.latency), font=("Arial", 10))
-        self.latency_label.pack(pady=(0, 5))
-
-        # Divider
-        ctk.CTkFrame(self.voice_frame, height=1, fg_color="gray").pack(fill="x", padx=5, pady=5)
-
-        # Quality/Tuning
-        self.noise_chk = ctk.CTkCheckBox(self.voice_frame, text="Remove Noise", font=("Arial", 10), command=self._on_noise_chk)
+        # Row 3: Noise Checkbox (Spanning)
+        self.noise_chk = ctk.CTkCheckBox(self.tab_io, text="AI Noise Removal", font=("Arial", 10), height=20, command=self._on_noise_chk)
         if self.settings.remove_background_noise: self.noise_chk.select()
         else: self.noise_chk.deselect()
-        self.noise_chk.pack(anchor="w", padx=5, pady=(0, 5))
+        self.noise_chk.grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        
+        # Row 4: VAD & Silence Labels
+        self.vad_label = ctk.CTkLabel(self.tab_io, text="VAD Threshold: 500", font=("Arial", 10), anchor="w")
+        self.vad_label.grid(row=4, column=0, sticky="w", padx=5)
+        
+        self.pause_label = ctk.CTkLabel(self.tab_io, text=f"Silence Wait: {self.settings.vad_pause:.1f}s", font=("Arial", 10), anchor="w")
+        self.pause_label.grid(row=4, column=1, sticky="w", padx=5)
+        
+        # Row 5: VAD & Silence Sliders
+        self.vad_slider = ctk.CTkSlider(self.tab_io, from_=0, to=2000, command=self._on_vad_slide, height=16)
+        self.vad_slider.set(500)
+        self.vad_slider.grid(row=5, column=0, sticky="ew", padx=5, pady=(0, 5))
+        
+        self.pause_slider = ctk.CTkSlider(self.tab_io, from_=0.1, to=3.0, number_of_steps=29, command=self._on_pause_slide, height=16)
+        self.pause_slider.set(self.settings.vad_pause)
+        self.pause_slider.grid(row=5, column=1, sticky="ew", padx=5, pady=(0, 5))
 
-        ctk.CTkLabel(self.voice_frame, text="Stability:", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.stab_slider = ctk.CTkSlider(self.voice_frame, from_=0.0, to=1.0, command=self._on_stab_slide, height=20)
+        # Row 6: Buffer Size Label & Slider
+        self.buf_label = ctk.CTkLabel(self.tab_io, text=f"Playback Buffer: {self.settings.playback_buffer_size} chunks", font=("Arial", 10), anchor="w")
+        self.buf_label.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 0))
+        
+        self.buf_slider = ctk.CTkSlider(self.tab_io, from_=100, to=5000, number_of_steps=49, command=self._on_buf_slide, height=16)
+        self.buf_slider.set(self.settings.playback_buffer_size)
+        self.buf_slider.grid(row=7, column=0, columnspan=2, sticky="ew", padx=5, pady=(0, 5))
+
+
+        # === TAB 2: Voice & Quality (Grid Layout) ===
+        self.tab_voice.grid_columnconfigure(0, weight=1)
+        self.tab_voice.grid_columnconfigure(1, weight=1)
+        
+        # Row 0: Voice Selection (Spanning)
+        ctk.CTkLabel(self.tab_voice, text="Target Voice:", font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=(5,0))
+        self.voice_combo = ctk.CTkComboBox(self.tab_voice, command=self._on_voice_change, state="readonly", height=24)
+        self.voice_combo.grid(row=1, column=0, columnspan=2, sticky="ew", padx=5, pady=(0, 10))
+        
+        # Row 2: Stability & Similarity Labels
+        self.stab_label = ctk.CTkLabel(self.tab_voice, text=f"Stability: {self.settings.stability:.2f}", font=("Arial", 10), anchor="w")
+        self.stab_label.grid(row=2, column=0, sticky="w", padx=5)
+        
+        self.sim_label = ctk.CTkLabel(self.tab_voice, text=f"Similarity: {self.settings.similarity:.2f}", font=("Arial", 10), anchor="w")
+        self.sim_label.grid(row=2, column=1, sticky="w", padx=5)
+        
+        # Row 3: Stability & Similarity Sliders
+        self.stab_slider = ctk.CTkSlider(self.tab_voice, from_=0.0, to=1.0, command=self._on_stab_slide, height=16)
         self.stab_slider.set(self.settings.stability)
-        self.stab_slider.pack(fill="x", padx=5, pady=(2, 0))
-        self.stab_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.stability:.2f}", font=("Arial", 10))
-        self.stab_label.pack(pady=(0, 5))
-
-        ctk.CTkLabel(self.voice_frame, text="Similarity:", font=("Arial", 10)).pack(anchor="w", padx=5)
-        self.sim_slider = ctk.CTkSlider(self.voice_frame, from_=0.0, to=1.0, command=self._on_sim_slide, height=20)
+        self.stab_slider.grid(row=3, column=0, sticky="ew", padx=5, pady=(0, 10))
+        
+        self.sim_slider = ctk.CTkSlider(self.tab_voice, from_=0.0, to=1.0, command=self._on_sim_slide, height=16)
         self.sim_slider.set(self.settings.similarity)
-        self.sim_slider.pack(fill="x", padx=5, pady=(2, 0))
-        self.sim_label = ctk.CTkLabel(self.voice_frame, text=f"{self.settings.similarity:.2f}", font=("Arial", 10))
-        self.sim_label.pack(pady=(0, 5))
+        self.sim_slider.grid(row=3, column=1, sticky="ew", padx=5, pady=(0, 10))
+        
+        # Row 4: Latency (Spanning)
+        self.latency_label = ctk.CTkLabel(self.tab_voice, text=f"Latency Opt: Level {self.settings.latency}", font=("Arial", 10), anchor="w")
+        self.latency_label.grid(row=4, column=0, columnspan=2, sticky="w", padx=5)
+        
+        self.latency_slider = ctk.CTkSlider(self.tab_voice, from_=0, to=4, number_of_steps=4, command=self._on_latency_slide, height=16)
+        self.latency_slider.set(self.settings.latency)
+        self.latency_slider.grid(row=5, column=0, columnspan=2, sticky="ew", padx=5, pady=(0, 5))
 
         # 3. Controls (Status & Actions)
         self.ctrl_frame = ctk.CTkFrame(self.root)
@@ -162,15 +175,15 @@ class AppWindow:
         self.start_btn = ctk.CTkButton(self.ctrl_frame, text="START Voice Changer", height=45, font=("Arial", 16, "bold"), fg_color="green", command=self._toggle_streaming)
         self.start_btn.pack(fill="x", padx=10, pady=(0, 10))
 
+        # 5. Footer (Version/Author)
+        footer_text = f"{APP_TITLE} | Author: {APP_AUTHOR}" 
+        ctk.CTkLabel(self.root, text=footer_text, font=("Arial", 9), text_color="gray").pack(side="bottom", pady=(0, 5))
+
         # 4. Console (Fills Rest)
         ctk.CTkLabel(self.root, text="System Logs:", font=("Arial", 11, "bold")).pack(anchor="w", padx=12, pady=(5,0))
         self.console = ctk.CTkTextbox(self.root, font=("Consolas", 10))
         self.console.pack(fill="both", expand=True, padx=10, pady=(0, 5))
         self.console.insert("0.0", "--- System Ready ---\n")
-        
-        # 5. Footer (Version/Author)
-        footer_text = f"Voice Changer v{APP_VERSION} | Author: {APP_AUTHOR}" 
-        ctk.CTkLabel(self.root, text=footer_text, font=("Arial", 9), text_color="gray").pack(pady=(0, 5))
 
     def _log_message(self, msg):
         def _update():
@@ -227,21 +240,29 @@ class AppWindow:
 
     def _on_vad_slide(self, value):
         val = int(value)
-        self.vad_label.configure(text=str(val))
+        self.vad_label.configure(text=f"VAD Threshold: {val}")
         if self.sts_processor:
             self.sts_processor.vad_threshold = val
 
     def _on_pause_slide(self, value):
         val = round(float(value), 1)
-        self.pause_label.configure(text=str(val))
+        self.pause_label.configure(text=f"Silence Wait: {val}s")
         self.settings.vad_pause = val
         self.settings.save()
         if self.sts_processor:
             self.sts_processor.vad_pause = val
 
+    def _on_buf_slide(self, value):
+        val = int(value)
+        self.buf_label.configure(text=f"Playback Buffer: {val} chunks")
+        self.settings.playback_buffer_size = val
+        self.settings.save()
+        if not self.audio_mgr.is_running:
+            self.audio_mgr.set_buffer_size(val)
+
     def _on_latency_slide(self, value):
         val = int(value)
-        self.latency_label.configure(text=str(val))
+        self.latency_label.configure(text=f"Latency Opt: Level {val}")
         self.settings.latency = val
         self.settings.save()
         if self.sts_processor:
@@ -256,7 +277,7 @@ class AppWindow:
 
     def _on_stab_slide(self, value):
         val = round(float(value), 2)
-        self.stab_label.configure(text=str(val))
+        self.stab_label.configure(text=f"Stability: {val:.2f}")
         self.settings.stability = val
         self.settings.save()
         if self.sts_processor:
@@ -264,7 +285,7 @@ class AppWindow:
 
     def _on_sim_slide(self, value):
         val = round(float(value), 2)
-        self.sim_label.configure(text=str(val))
+        self.sim_label.configure(text=f"Similarity: {val:.2f}")
         self.settings.similarity = val
         self.settings.save()
         if self.sts_processor:
