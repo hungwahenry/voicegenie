@@ -1,8 +1,8 @@
-import customtkinter as ctk
+import tkinter as tk
 from ui.app_window import AppWindow
 
 def main():
-    root = ctk.CTk()
+    root = tk.Tk()
     app = AppWindow(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
     root.mainloop()
