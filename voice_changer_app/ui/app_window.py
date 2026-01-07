@@ -71,7 +71,7 @@ class AppWindow:
         self.api_entry = tk.Entry(self.auth_frame, textvariable=self.api_key_var, show="*", width=35, bg="#3a3a3a", fg=self.text_color, insertbackground=self.text_color, relief="flat", borderwidth=2)
         self.api_entry.pack(side="left", padx=5, fill="x", expand=True, ipady=3)
 
-        save_btn = tk.Button(self.auth_frame, text="Save", width=8, command=self._save_api_key, bg=self.accent_color, fg=self.text_color, relief="flat", cursor="hand2")
+        save_btn = tk.Button(self.auth_frame, text="Save", width=8, command=self._save_api_key, bg=self.accent_color, fg=self.text_color, highlightbackground=self.accent_color, activebackground=self.accent_color, relief="flat", cursor="hand2")
         save_btn.pack(side="right", padx=5)
 
         # 2. Tabs for Configuration
@@ -110,10 +110,10 @@ class AppWindow:
         self.output_combo.grid(row=1, column=1, sticky="ew", padx=5, pady=(0, 5))
 
         # Row 2: Refresh + Help
-        refresh_btn = tk.Button(self.tab_io, text="Refresh Devices", font=("Arial", 10), command=self._load_devices, bg=self.accent_color, fg=self.text_color, relief="flat", cursor="hand2")
+        refresh_btn = tk.Button(self.tab_io, text="Refresh Devices", font=("Arial", 10), command=self._load_devices, bg=self.accent_color, fg=self.text_color, highlightbackground=self.accent_color, activebackground=self.accent_color, relief="flat", cursor="hand2")
         refresh_btn.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
 
-        help_btn = tk.Button(self.tab_io, text="Help / Guide", font=("Arial", 10, "bold"), command=self._show_guide, bg="#666666", fg=self.text_color, relief="flat", cursor="hand2")
+        help_btn = tk.Button(self.tab_io, text="Help / Guide", font=("Arial", 10, "bold"), command=self._show_guide, bg="#666666", fg=self.text_color, highlightbackground="#666666", activebackground="#666666", relief="flat", cursor="hand2")
         help_btn.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
         # Row 3: Noise Checkbox (Spanning)
@@ -195,7 +195,7 @@ class AppWindow:
         self.wave_canvas.pack(side="right", pady=5)
 
         # Start Button
-        self.start_btn = tk.Button(self.ctrl_frame, text="START Voice Changer", font=("Arial", 16, "bold"), command=self._toggle_streaming, bg="green", fg=self.text_color, relief="flat", cursor="hand2", height=2)
+        self.start_btn = tk.Button(self.ctrl_frame, text="START Voice Changer", font=("Arial", 16, "bold"), command=self._toggle_streaming, bg="green", fg=self.text_color, highlightbackground="green", activebackground="green", relief="flat", cursor="hand2", height=2)
         self.start_btn.pack(fill="x", padx=10, pady=(0, 10))
 
         # 5. Footer (Version/Author)
@@ -368,7 +368,7 @@ class AppWindow:
         textbox.insert("1.0", text)
         textbox.config(state="disabled")
 
-        close_btn = tk.Button(guide_window, text="Close", command=guide_window.destroy, bg=self.accent_color, fg=self.text_color, relief="flat", cursor="hand2")
+        close_btn = tk.Button(guide_window, text="Close", command=guide_window.destroy, bg=self.accent_color, fg=self.text_color, highlightbackground=self.accent_color, activebackground=self.accent_color, relief="flat", cursor="hand2")
         close_btn.pack(pady=10)
 
     def _load_devices(self):
@@ -481,18 +481,18 @@ class AppWindow:
 
     def _on_start_complete(self):
         """Called when async start completes"""
-        self.start_btn.configure(text="STOP Voice Changer", bg="red", state="normal")
+        self.start_btn.configure(text="STOP Voice Changer", bg="red", highlightbackground="red", activebackground="red", state="normal")
         self.status_label.configure(text="ACTIVE (Streaming)", fg="#00FF00")
 
     def _on_start_error(self, error_msg):
         """Called when async start fails"""
         self._log_message(f"Start Error: {error_msg}")
-        self.start_btn.configure(text="START Voice Changer", bg="green", state="normal")
+        self.start_btn.configure(text="START Voice Changer", bg="green", highlightbackground="green", activebackground="green", state="normal")
         self.status_label.configure(text="Ready", fg="gray")
 
     def _on_stop_complete(self):
         """Called when async stop completes"""
-        self.start_btn.configure(text="START Voice Changer", bg="green", state="normal")
+        self.start_btn.configure(text="START Voice Changer", bg="green", highlightbackground="green", activebackground="green", state="normal")
         self.status_label.configure(text="Ready", fg="gray")
 
     def on_closing(self):
